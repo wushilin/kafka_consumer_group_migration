@@ -1,0 +1,15 @@
+#!/bin/sh
+
+./gradlew clean jar
+VERSION=`cat build.gradle.kts | grep "^version" | sed 's/.*=[[:space:]]*"//g' | sed 's/".*$//g'`
+echo $VERSION
+PACKAGE_NAME=kafka_consumer_group_migration-$VERSION
+DIR=build
+PACKAGE=$DIR/$PACKAGE_NAME
+mkdir $PACKAGE
+cp build/libs/*.jar $PACKAGE
+cp *.sh $PACKAGE
+cp examples/client.properties $PACKAGE
+cp examples/migration.properties $PACKAGE
+tar zcvf $PACKAGE.tar.gz -C $DIR $PACKAGE_NAME
+rm -rf $PACKAGE
