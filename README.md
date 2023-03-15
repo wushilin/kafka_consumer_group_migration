@@ -7,6 +7,10 @@ This tool is useful when:
 1. You want to adjust consumer group offset according to another consumer group offset
 2. Rename consumer group with offset migration
 
+You can't adjust consumer groups that is currently active (have consumers attached)
+
+You can adjust this as one off (`loops=1`), or run forever (`loops=-1`)
+
 # Requires
 Java 1.8
 
