@@ -75,6 +75,8 @@ set1.group.regex=_confluent-control(.*)
 set1.group.blacklist.regex=NewGroup-.*
 
 # Consumer group name conversion rule. ${0} -> The entire old name, ${1} the first capture group in brackets and so on
+# In this example, consumer groups that starts with _confluent-control (e.g. _confluent-control-test1) will be 
+# translated to a group called NewGroup--test1 because ${1} is "-test1"
 # Required, No default value
 set1.group.rename=NewGroup-${1}
 
@@ -88,6 +90,8 @@ set1.topic.blacklist.regex=
 
 # Topic rename rule if any. Default is ${0} (means equals to the old group name)
 # Default: ${0}
+# The topic of the consumer group is untouched. You can use tempalte similar to `set1.group.rename`
+# to do a name translation of the topic as well. Not very much useful, but it provides flexibility
 set1.topic.rename=${0}
 
 # Definition for set2

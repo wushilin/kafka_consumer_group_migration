@@ -32,7 +32,6 @@ class Main : CliktCommand() {
 
     override fun run() {
         val props = EnvAwareProperties.fromPath(clientFile)
-        val admin = KafkaAdminClient.create(props)
         val config = EnvAwareProperties.fromPath(migrationFile)
         val setsString = config.getProperty("migration.targets")
         val loops = config.getProperty("loops", "1").toInt()
@@ -50,24 +49,37 @@ class Main : CliktCommand() {
             logger.info("Requesting stable offsets (consumed and committed)")
         }
         val sets = setsString.split(",")
+        if(loops == 0) {
+            logger.error("Loops is 0. Not running!")
+        }
+        var admin:AdminClient? = null
         while (counter++ < loops || loops < 0) {
-            for (set in sets) {
-                var setTrimmed = set.trim()
-                var localConfig = config.partition(setTrimmed)
-                if ("false".equals(localConfig.getProperty("enable"), true)) {
-                    logger.info("Ignoring set `${setTrimmed}` because it is not enabled ($setTrimmed.enabled = false)")
-                    continue;
+            try {
+                if(admin == null) {
+                    admin = KafkaAdminClient.create(props)
                 }
-                try {
-                    runSet(setTrimmed, localConfig, admin)
-                } catch (ex: Throwable) {
-                    logger.error("Failed to run set `$setTrimmed`: $ex")
+                for (set in sets) {
+                    var setTrimmed = set.trim()
+                    var localConfig = config.partition(setTrimmed)
+                    if ("false".equals(localConfig.getProperty("enable"), true)) {
+                        logger.info("Ignoring set `${setTrimmed}` because it is not enabled ($setTrimmed.enabled = false)")
+                        continue;
+                    }
+                    try {
+                        runSet(setTrimmed, localConfig, admin!!)
+                    } catch (ex: Throwable) {
+                        logger.error("Failed to run set `$setTrimmed`: $ex")
+                    }
                 }
-            }
-            logger.info("Loop $counter completed (max $loops)")
-            if (counter < loops || loops < 0) {
-                logger.debug("Sleeping for $intervalMs milliseconds between loops.")
-                Thread.sleep(intervalMs)
+                logger.info("Loop $counter completed (max $loops)")
+                if (counter < loops || loops < 0) {
+                    logger.debug("Sleeping for $intervalMs milliseconds between loops.")
+                    Thread.sleep(intervalMs)
+                }
+            } catch(ex:Throwable) {
+                logger.error("Error: $ex")
+                admin?.close()
+                admin = null
             }
         }
     }
@@ -83,8 +95,8 @@ class Main : CliktCommand() {
             val groupRename = config.getProperty("group.rename")
             val topicRegex = config.getProperty("topic.regex", ".*")
             val topicRename = config.getProperty("topic.rename", "\${0}")
-            val groupBlacklistRegex = config.getProperty("group.blacklist.regex")
-            val topicBlackListRegex = config.getProperty("topic.blacklist.regex")
+            val groupBlacklistRegex = config.getProperty("group.blacklist.regex", "")
+            val topicBlackListRegex = config.getProperty("topic.blacklist.regex", "")
 
             logger.info("  group.regex   => $groupRegex")
             logger.info("  group.rename  => $groupRename")
