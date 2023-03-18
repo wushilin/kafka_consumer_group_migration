@@ -1,5 +1,11 @@
 # kafka_consumer_group_migration
-A tool help you to do one-time, or continuous consumer group migration
+A tool help you to do consumer group migration.
+
+You can migrate offsets on the same cluster, or different cluster.
+
+You can migrate offset with consumer group renaming, and/or topic renaming.
+
+You can run it once, or run it continuously until you stop it.
 
 
 # Goal
