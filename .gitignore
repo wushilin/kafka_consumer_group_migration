@@ -26,3 +26,4 @@ tmp/
 .gradle/
 .idea/
 .fleet/
+.idea/gradle.xml
