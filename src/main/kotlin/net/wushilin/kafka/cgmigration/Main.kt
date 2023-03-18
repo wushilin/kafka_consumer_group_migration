@@ -1,6 +1,7 @@
 package net.wushilin.kafka.cgmigration
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import net.wushilin.props.EnvAwareProperties
@@ -25,13 +26,20 @@ class Main : CliktCommand() {
         help = "Properties for consumer group offset migration file (see examples/migration.properties)"
     ).required()
     private val clientFile: String by option(
-        "-c",
-        "--command-config",
-        help = "Your kafka connectivity client properties"
+        "-s",
+        "--src-command-config",
+        help = "Your source kafka connectivity client properties"
     ).required()
+
+    private val destClientFile: String? by option(
+        "-d",
+        "--dest-command-config",
+        help = "Your destination kafka connectivity client properties (default = source cluster)"
+    )
 
     override fun run() {
         val props = EnvAwareProperties.fromPath(clientFile)
+        val destProps = EnvAwareProperties.fromPath(destClientFile?:clientFile)
         val config = EnvAwareProperties.fromPath(migrationFile)
         val setsString = config.getProperty("migration.targets")
         val loops = config.getProperty("loops", "1").toInt()
@@ -53,10 +61,14 @@ class Main : CliktCommand() {
             logger.error("Loops is 0. Not running!")
         }
         var admin:AdminClient? = null
+        var adminDest:AdminClient? = null
         while (counter++ < loops || loops < 0) {
             try {
                 if(admin == null) {
                     admin = KafkaAdminClient.create(props)
+                }
+                if(adminDest == null) {
+                    adminDest = KafkaAdminClient.create(destProps)
                 }
                 for (set in sets) {
                     var setTrimmed = set.trim()
@@ -66,7 +78,7 @@ class Main : CliktCommand() {
                         continue;
                     }
                     try {
-                        runSet(setTrimmed, localConfig, admin!!)
+                        runSet(setTrimmed, localConfig, admin!!, adminDest!!)
                     } catch (ex: Throwable) {
                         logger.error("Failed to run set `$setTrimmed`: $ex")
                     }
@@ -80,11 +92,13 @@ class Main : CliktCommand() {
                 logger.error("Error: $ex")
                 admin?.close()
                 admin = null
+                adminDest?.close()
+                adminDest = null
             }
         }
     }
 
-    fun runSet(set: String, config: EnvAwareProperties, admin: AdminClient) {
+    fun runSet(set: String, config: EnvAwareProperties, adminSrc: AdminClient, adminDest:AdminClient) {
         //group.regex
         //group.rename
         //topic.regex
@@ -105,7 +119,7 @@ class Main : CliktCommand() {
             logger.info("  group.blacklist.regex => $groupBlacklistRegex")
             logger.info("  topic.blacklist.regex => $topicBlackListRegex")
 
-            val allNames = getAllConsumerGroups(admin)
+            val allNames = getAllConsumerGroups(adminSrc)
             if (groupRegex == null || groupRegex.trim().isBlank()) {
                 logger.info("Skipped set $set because no group regex defined.")
                 return
@@ -159,7 +173,7 @@ class Main : CliktCommand() {
             for (i in groupsToDescribe) {
                 logger.info("  - $i")
             }
-            val describeResult = listConsumerOffsets(admin, groupsToDescribe)
+            val describeResult = listConsumerOffsets(adminSrc, groupsToDescribe)
             if (describeResult == null) {
                 logger.info("No group offset found!")
                 return
@@ -192,7 +206,7 @@ class Main : CliktCommand() {
                     consumerGroupToAlter[newTopicPartition] = OffsetAndMetadata(newOffset)
                 }
                 if (consumerGroupToAlter.isNotEmpty()) {
-                    val altered = alterConsumerOffsets(admin, newGroup, consumerGroupToAlter)
+                    val altered = alterConsumerOffsets(adminDest, newGroup, consumerGroupToAlter)
                     if (altered > 0) {
                         logger.info("Altered $altered offsets for $newGroup")
                     } else {

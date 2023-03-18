@@ -31,9 +31,30 @@ Built artifact will be in build/ folder (check tar.gz file)
 
 - Edit `migration.properties`
   
-- Run `run.sh -c client.properties -m migration.properties`
+- Run `run.sh -s src-client.properties -d dest-client.properties -m migration.properties`
 
+```bash
+Source cluster specified by -s src-client.properties
+Dest cluster specified by -d dest-client.properties
+
+If -d is not given, source cluster to source cluster migration (rename) is assumed
+```
 - To get help, run `run.sh --help`
+```bash
+Usage: main [OPTIONS]
+
+Options:
+  -m, --migration, --migration-file TEXT
+                                   Properties for consumer group offset
+                                   migration file (see
+                                   examples/migration.properties)
+  -s, --src-command-config TEXT    Your source kafka connectivity client
+                                   properties
+  -d, --dest-command-config TEXT   Your destination kafka connectivity client
+                                   properties (default = source cluster)
+  -h, --help                       Show this message and exit
+
+```
 
 - Monitor the consumer group offset are updated accordingly.
 
